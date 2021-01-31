@@ -3,21 +3,22 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .serializers import ReadUserSerializer
+from .serializers import ReadUserSerializer, WriteUserSerializer
 from .models import User
 # Create your views here.
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
-
     def get(self, request):
-        if request.user.is_authenticated:
-            print(ReadUserSerializer(request.user).data)
-            return Response(ReadUserSerializer(request.user).data)
-        else:
-            pass
+        return Response(ReadUserSerializer(request.user).data)
 
     def put(self, request):
-        pass
+        serailizer = WriteUserSerializer(request.user, data=request.data, partial=True)
+        if serailizer.is_valid():
+            serailizer.save()
+            return Response()
+        else:
+            return Response(serailizer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 @api_view(["GET"])
