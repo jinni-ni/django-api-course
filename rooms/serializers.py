@@ -14,8 +14,10 @@ from users.serializers import UserSerializer
 #         model = Room
 #         exclude = ("modified",)
 
+# TODO : POST user
 class RoomSerializer(serializers.ModelSerializer):
     user = UserSerializer()
+    is_fav = serializers.SerializerMethodField()
 
     class Meta:
         model = Room
@@ -46,19 +48,27 @@ class RoomSerializer(serializers.ModelSerializer):
 #     #     else:
 #     #         return beds
 #
-#     def validate(self, data):
-#         # update
-#         if self.instance:
-#             check_in = data.get('check_in', self.instance.check_in)
-#             check_out = data.get('check_out', self.instance.check_out )
-#         else:
-#             check_in = data.get('check_in')
-#             check_out = data.get('check_out')
-#
-#         if check_in == check_out:
-#             raise serializers.ValidationError("Not enough time between changes")
-#         else:
-#             return data
+    def validate(self, data):
+        # update
+        if self.instance:
+            check_in = data.get('check_in', self.instance.check_in)
+            check_out = data.get('check_out', self.instance.check_out )
+        else:
+            check_in = data.get('check_in')
+            check_out = data.get('check_out')
+
+        if check_in == check_out:
+            raise serializers.ValidationError("Not enough time between changes")
+        else:
+            return data
+
+    def get_is_fav(self, obj):
+        request = self.context.get('request')
+        if request:
+            user = request.user
+            if user.is_authenticated:
+                return obj in user.favs.all()
+        return False
 #
 #     def update(self, instance, validated_data):
 #         instance.name = validated_data.get("name", instance.name)
