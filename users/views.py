@@ -6,36 +6,106 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
+from rest_framework.viewsets import ModelViewSet
+
+from rest_framework.permissions import IsAdminUser, AllowAny
+from rest_framework import permissions
+from rest_framework.decorators import action
+
 from .serializers import UserSerializer
 from .models import User
 from rooms.models import Room
 from rooms.serializers import RoomSerializer
-
+from .permissions import IsSelf
 # Create your views here.
 
-class UsersView(APIView):
-    def post(self, request):
-        serializer = UserSerializer(data=request.data)
-        if serializer.is_valid():
-            new_user = serializer.save()
-            return Response(UserSerializer(new_user).data)
+class UsersViewSet(ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
 
+    def get_permissions(self):
+        # print(self.action)
+        permission_classes = []
+        if self.action == 'list':
+            permission_classes = [IsAdminUser]
+        elif self.action == 'craete' or self.action == 'retrieve' or self.action == 'favs':
+            permission_classes = [AllowAny]
+        # toggle_favvs...
         else:
-            return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+            permission_classes = [IsSelf]
+        return [permission() for permission in permission_classes]
 
-class MeView(APIView):
-    permission_classes = [IsAuthenticated]
+    @action(methods=["post"], detail=False)
+    def login(self, request):
+        username = request.data.get("username")
+        password = request.data.get("password")
 
-    def get(self, request):
-        return Response(UserSerializer(request.user).data)
+        if not username or not password:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
-    def put(self, request):
-        serailizer = UserSerializer(request.user, data=request.data, partial=True)
-        if serailizer.is_valid():
-            serailizer.save()
-            return Response()
+        # user exist check
+        user = authenticate(username=username, password=password)
+        if user is not None:
+            token_jwt = jwt.encode({"pk": user.pk}, settings.SECRET_KEY, algorithm="HS256")
+
+            return Response(data={'token': token_jwt, "id": user.pk})
         else:
-            return Response(serailizer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+    # user/pk
+    # permission_classes 설정 후 다른 권한 가지게 할 수 있음
+    @action(detail=True)
+    def favs(self, request, pk):
+        user = self.get_object()
+        serializer = RoomSerializer(user.favs.all(), many=True).data
+        # print(user)
+        # print(serializer)
+        return Response(serializer)
+
+    # PUT /users/pk/favs
+    # favs의 detail=true 설정되어 잇기 때문에 detail true, 별도 설정 불가
+    @favs.mapping.put
+    def toogle_favs(self, request, pk):
+        pk = request.data.get("pk", None)
+        user = request.user
+        if pk is not None:
+            try:
+                room = Room.objects.get(pk=pk)
+                print(room)
+                if room in user.favs.all():
+                    print("delete")
+                    user.favs.remove(room)
+                else:
+                    print("add")
+                    user.favs.add(room)
+                return Response(RoomSerializer(room).data)
+            except Room.DoesNotExist:
+                pass
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+
+# class UsersView(APIView):
+#     def post(self, request):
+#         serializer = UserSerializer(data=request.data)
+#         if serializer.is_valid():
+#             new_user = serializer.save()
+#             return Response(UserSerializer(new_user).data)
+#
+#         else:
+#             return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+
+# class MeView(APIView):
+#     permission_classes = [IsAuthenticated]
+#
+#     def get(self, request):
+#         return Response(UserSerializer(request.user).data)
+#
+#     def put(self, request):
+#         serailizer = UserSerializer(request.user, data=request.data, partial=True)
+#         if serailizer.is_valid():
+#             serailizer.save()
+#             return Response()
+#         else:
+#             return Response(serailizer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class FavsView(APIView):
     def get(self, request):
@@ -59,28 +129,29 @@ class FavsView(APIView):
                 pass
         return Response(status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(["GET"])
-def user_detail(request, pk):
-    try:
-        user = User.objects.get(pk=pk)
-        return Response(UserSerializer(user).data)
-    except User.DoesNotExist:
-        return Response(status=status.HTTP_404_NOT_FOUND)
-
-@api_view(["POST"])
-def login(request):
-    username = request.data.get("username")
-    password = request.data.get("password")
-
-    if not username or not password:
-        return Response(status=status.HTTP_400_BAD_REQUEST)
-
-    # user exist check
-    user = authenticate(username=username, password=password)
-    if user is not None:
-        token_jwt = jwt.encode({"pk": user.pk}, settings.SECRET_KEY, algorithm="HS256")
-        return Response(data={'token': token_jwt})
-    else:
-        return Response(status=status.HTTP_401_UNAUTHORIZED)
+# @api_view(["GET"])
+# def user_detail(request, pk):
+#     try:
+#         user = User.objects.get(pk=pk)
+#         return Response(UserSerializer(user).data)
+#     except User.DoesNotExist:
+#         return Response(status=status.HTTP_404_NOT_FOUND)
+#
+# @api_view(["POST"])
+# def login(request):
+#     username = request.data.get("username")
+#     password = request.data.get("password")
+#
+#     if not username or not password:
+#         return Response(status=status.HTTP_400_BAD_REQUEST)
+#
+#     # user exist check
+#     user = authenticate(username=username, password=password)
+#     if user is not None:
+#         token_jwt = jwt.encode({"pk": user.pk}, settings.SECRET_KEY, algorithm="HS256")
+#         return Response(data={'token': token_jwt})
+#     else:
+#         return Response(status=status.HTTP_401_UNAUTHORIZED)
+#
 
 

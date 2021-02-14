@@ -16,7 +16,7 @@ from users.serializers import UserSerializer
 
 # TODO : POST user
 class RoomSerializer(serializers.ModelSerializer):
-    user = UserSerializer()
+    user = UserSerializer(read_only=True)
     is_fav = serializers.SerializerMethodField()
 
     class Meta:
@@ -24,7 +24,14 @@ class RoomSerializer(serializers.ModelSerializer):
         exclude = ("modified",)
         # no validate user
         read_only_fields = ('user','id', 'created', 'updated')
-#
+
+    def create(self, validated_data):
+        # user 정보를 가져옴
+        # get_serailizer_context
+        request = self.context.get("request")
+        room = Room.objects.create(**validated_data, user=request.user)
+        return room
+
 # class WriteRoomSerializer(serializers.Serializer):
 #     name = serializers.CharField(max_length=140)
 #     address = serializers.CharField(max_length=140)
