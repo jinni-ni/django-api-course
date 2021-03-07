@@ -41,6 +41,7 @@ class RoomViewSet(ModelViewSet):
 
         filter_kwargs = {}
 
+
         if max_price is not None:
             filter_kwargs["price__lte"] = max_price
 
@@ -51,10 +52,10 @@ class RoomViewSet(ModelViewSet):
             filter_kwargs["beds__gte"] = beds
 
         if bedrooms is not None:
-            filter_kwargs["bedrooms__gte"] = beds
+            filter_kwargs["bedrooms__gte"] = bedrooms
 
         if bathrooms is not None:
-            filter_kwargs["bathrooms__gte"] = beds
+            filter_kwargs["bathrooms__gte"] = bathrooms
 
 
         if lat is not None and lng is not None:
@@ -75,7 +76,7 @@ class RoomViewSet(ModelViewSet):
             rooms = Room.objects.all()
 
         results = paginator.paginate_queryset(rooms, request)
-        serializers = RoomSerializer(results, many=True)
+        serializers = RoomSerializer(results, many=True, context={'request' : request})
         return paginator.get_paginated_response(serializers.data)
 
 # @api_view(["GET", "POST"])
